@@ -1,0 +1,170 @@
+<!--
+Copyright 2013 The Toolkitchen Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<script>
+</script>
+<element name="g-action">
+  <script>
+    gAction = Toolkit.register(this, {
+      target: null,
+      method: '',
+      property: '',
+      value: null,
+      arguments: '',
+      auto: false,
+      ready: function() {
+        // TODO(sorvell): install a dispatch method on our controler
+        // that allows it to send events to actions; monkey-patching
+        // is bad form, consider alternatives.
+        this.job(null, installControllerDispatch);
+      },
+      execute: function(inEvent, inDetail, inSender) {
+        if (!this.canExecute(inEvent, inDetail, inSender)) {
+          return;
+        }
+        var t = this.calcTarget();
+        if (t) {
+          this.executeMethod(t, this.method, this.calcArguments());
+          this.executeProperty(t, this.property, this.value);
+          // TODO(sorvell): we want property changes to reflect immediately
+          // note, for example, if an onchange triggers a property to change
+          // and a subsequent mousedown depends on that property having changed.
+          dirtyCheck();
+          this.send('execute');
+        }
+        return true;
+      },
+      canExecute: function(inEvent, inDetail, inSender) {
+        return true;
+      },
+      executeMethod: function(inTarget, inMethod, inArgs) {
+        var m = inTarget[inMethod];
+        if (m) {
+          m.apply(inTarget, inArgs);
+        }
+      },
+      executeProperty: function(inTarget, inProperty, inValue) {
+        inTarget[inProperty] = inValue;
+      },
+      calcTarget: function() {
+        return this.target || (this.parentNode ? (this.parentNode.target
+            || this.parentNode) : null);
+      },
+      // TODO(sorvell): the more verbose arguments syntax is needed to support
+      // non-string values. If property binding worked on multiple bindings
+      // this would not be necessary.
+      calcArguments: function() {
+        return this.calcAttrArguments().concat(this.calcChildrenArguments());
+      },
+      calcAttrArguments: function() {
+        return this.arguments.split(',').map(function(a) {
+          return a.trim();
+        });
+      },
+      calcChildrenArguments: function() {
+        var args = [];
+        Array.prototype.forEach.call(this.children, function(c) {
+          if (c.localName == 'g-argument') {
+            args.push(c.value);
+          }
+        });
+        return args;
+      },
+      // TODO(sorvell): it's inconvenient to this type of check; note the need
+      // to capture the constructor.
+      nodeIsAction: function(inNode) {
+        return inNode instanceof gAction;
+      },
+      extractArguments: function(inArguments) {
+        return inArguments && inArguments.split(',').map(function(t) {
+          return t.trim();
+        });
+      },
+      autoExecute: function() {
+        if (this.auto) {
+          this.autoExecuteJob = this.job(this.autoExecuteJob, this.execute);
+        }
+      },
+      targetChanged: function() {
+        this.autoExecute();
+      },
+      methodChanged: function() {
+        this.autoExecute();
+      },
+      valueChanged: function() {
+        this.autoExecute();
+      },
+      propertyChanged: function() {
+        this.autoExecute();
+      },
+      argumentsChanged: function() {
+        this.autoExecute();
+      }
+    });
+    
+    function installControllerDispatch() {
+      var controller = findController.call(this);
+      if (controller) {
+        controller.dispatch = dispatch;
+      }
+    }
+    function findController() {
+      var n = this;
+      while (n.parentNode && n.localName !== 'shadow-root') {
+        n = n.parentNode;
+      }
+      return n.host;
+    };
+    
+    function dispatch(inMethodName, inArguments) {
+      if (handleAction.call(this, inMethodName, inArguments)) {
+        return;
+      }
+      if (this[inMethodName]) {
+        this[inMethodName].apply(this, inArguments);
+      }
+    };
+    
+    function handleAction(inMethodName, inArguments) {
+      var action = ChangeSummary.getValueAtPath(this, inMethodName);
+      if (action && action.execute) {
+        action.execute.apply(action, inArguments);
+        return true;
+      }
+    }
+  </script>
+</element>
+
+<element name="g-argument">
+  <script>
+    Toolkit.register(this, {
+      value: null
+    });
+  </script>
+</element>
+
+<element name="g-action-router" extends="g-action">
+  <script>
+    Toolkit.register(this, {
+      execute: function(inEvent, inDetail, inSender) {
+        this.super(arguments);
+        this.routeAction(inEvent, inDetail, inSender);
+      },
+      routeAction: function(inEvent, inDetail, inSender) {
+        var actions = Array.prototype.filter.call(this.children, function(c) {
+          return this.nodeIsAction(c);
+        }, this);
+        var handled = false;
+        actions.some(function(a) {
+          if (a.execute(inEvent, inDetail, inSender)) {
+            handled = true;
+            return true;
+          }
+        });
+        return handled;
+      }
+    });
+  </script>
+</element>
