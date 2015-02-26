@@ -16,6 +16,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <link rel="import" href="../../src/lib/module.html">
   <link rel="import" href="../assets/modules/one.html">
   <link rel="import" href="../assets/modules/two.html">
+  <link rel="import" href="../assets/modules/fancy.html">
 </head>
 <body>
 
@@ -110,6 +111,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         });
       });
 
+    });
+
+  });
+
+  suite('define.withImports()', function() {
+
+    test('loads imported modules for you', function(done) {
+      define(['../assets/modules/fancy.html'], function(two) {
+        assert.equal(two.one,   'module 1');
+        assert.equal(two.me,    'module 2');
+        assert.equal(two.three, 'module 3');
+        done();
+      });
     });
 
   });

@@ -70,6 +70,60 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
    */
   define.amd = {};
 
+  // `define.withImports`
+
+  /**
+   * Define an AMD module in a HTML import, and reference any dependencies that
+   * are expressed via <link rel="import"> elements.
+   *
+   * This is a simple wrapper around `define` that reduces module boilerplate:
+   *
+   *   <link rel="import" href="./foo.html">
+   *   <link rel="import" href="../bar.html">
+   *   &lt;script&gt;
+   *     define(['./foo.html', '../bar.html'], function(foo, bar) {
+   *       // ...
+   *     });
+   *   &lt;/script&gt;
+   *
+   * To something a little more convenient:
+   *
+   *   <link rel="import" href="./foo.html">
+   *   <link rel="import" href="../bar.html">
+   *   &ltscript&gt;
+   *     define(function(foo, bar) {
+   *       // ...
+   *     });
+   *   &lt/script&gt;
+   *
+   * **All** import link elements will be declared as dependencies for the
+   * defined module, and they will be declared in the same order.
+   *
+   * @param {string=} id The id of the module being defined. If not provided,
+   *     one will be given to the module based on the document it was called in.
+   * @param {function(...*)|*} factory A function that is given the exported
+   *     values for `dependencies`, in the same order. Alternatively, you can
+   *     pass the exported value directly.
+   */
+  function defineWithImports(id, factory) {
+    var importDoc = document.currentScript && document.currentScript.ownerDocument;
+    if (!importDoc) {
+      throw new Error('defineWithImports must be called within an imported document');
+    }
+
+    var imports = importDoc.querySelectorAll('link[rel=import]');
+    var dependencies = Array.prototype.map.call(imports, function(link) {
+      return link.href;
+    });
+
+    if (arguments.length === 1) {
+      define(dependencies, id);
+    } else {
+      define(id, dependencies, factory);
+    }
+  }
+  define.withImports = defineWithImports;
+
   // Utility
 
   /** @return {string} A module id inferred from the current document/import. */
